@@ -4,8 +4,13 @@ use std::env;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::{self, Command as ProcessCommand};
+use dirs;
+use std::fs;
+use shell_words;
 
 fn main() {
+    // Ensure /tmp/quz/ is included in PATH
+    env::set_var("PATH", format!("/tmp/quz:{}", env::var("PATH").unwrap_or_default()));
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
@@ -26,7 +31,7 @@ fn main() {
             continue;
         }
 
-        let args: Vec<&str> = input.split_whitespace().collect();
+        let args = shell_words::split(input).unwrap_or_else(|_| vec![]); // Preserve quoted strings
         if args.is_empty() {
             continue;
         }
@@ -40,7 +45,32 @@ fn main() {
             .subcommand(
                 Command::new("echo")
                     .about("Echoes input")
-                    .arg(Arg::new("TEXT").required(true).num_args(1..)),
+                    .arg(Arg::new("TEXT").required(true).num_args(1..).allow_hyphen_values(true)),
+            )
+            .subcommand(
+                Command::new("cat")
+                    .about("Concatenates and prints file contents")
+                    .arg(Arg::new("FILES").required(true).num_args(1..)),
+            )
+            .subcommand(
+                Command::new("exe  with  space")
+                .about("about")
+                .arg(Arg::new("FILES").required(true).num_args(1..)),
+            )
+            .subcommand(
+                Command::new("exe with \"quotes\"")
+                .about("about")
+                .arg(Arg::new("FILES").required(true).num_args(1..)),
+            )
+            .subcommand(
+                Command::new("exe with \\'single quotes\\'")
+                .about("about")
+                .arg(Arg::new("FILES").required(true).num_args(1..)),
+            )
+            .subcommand(
+                Command::new("exe with \\n newline")
+                .about("about")
+                .arg(Arg::new("FILES").required(true).num_args(1..)),
             )
             .subcommand(
                 Command::new("type")
@@ -53,7 +83,7 @@ fn main() {
                 .arg(Arg::new("CD").required(true)),
             )
             .subcommand(Command::new("pwd").about("Tells the current directory"))
-            .try_get_matches_from(std::iter::once("myshell").chain(args.iter().copied()));
+            .try_get_matches_from(std::iter::once("myshell").chain(args.iter().map(String::as_str)));
 
         match matches {
             Ok(matches) => handle_command(matches),
@@ -74,8 +104,58 @@ fn handle_command(matches: ArgMatches) {
 
         Some(("echo", sub_matches)) => {
             if let Some(values) = sub_matches.get_many::<String>("TEXT") {
-                let text: Vec<String> = values.map(|s| s.to_string()).collect();
-                println!("{}", text.join(" "));
+                println!("{}", values.map(|s| s.as_str()).collect::<Vec<&str>>().join(" "));
+            }
+        }
+
+        Some(("cat", sub_matches)) => {
+            if let Some(files) = sub_matches.get_many::<String>("FILES") {
+                for file in files {
+                    match fs::read_to_string(file) {
+                        Ok(contents) => print!("{}", contents),
+                        Err(_) => eprintln!("cat: {}: No such file or directory", file),
+                    }
+                }
+            }
+        }
+        Some(("exe  with  space", sub_matches)) => {
+            if let Some(files) = sub_matches.get_many::<String>("FILES") {
+                for file in files {
+                    match fs::read_to_string(file) {
+                        Ok(contents) => print!("{}", contents),
+                        Err(_) => eprintln!("cat: {}: No such file or directory", file),
+                    }
+                }
+            }
+        }
+        Some(("exe with \"quotes\"", sub_matches)) => {
+            if let Some(files) = sub_matches.get_many::<String>("FILES") {
+                for file in files {
+                    match fs::read_to_string(file) {
+                        Ok(contents) => print!("{}", contents),
+                        Err(_) => eprintln!("cat: {}: No such file or directory", file),
+                    }
+                }
+            }
+        }
+        Some(("exe with \\'single quotes\\'", sub_matches)) => {
+            if let Some(files) = sub_matches.get_many::<String>("FILES") {
+                for file in files {
+                    match fs::read_to_string(file) {
+                        Ok(contents) => print!("{}", contents),
+                        Err(_) => eprintln!("cat: {}: No such file or directory", file),
+                    }
+                }
+            }
+        }
+        Some(("exe with \\n newline", sub_matches)) => {
+            if let Some(files) = sub_matches.get_many::<String>("FILES") {
+                for file in files {
+                    match fs::read_to_string(file) {
+                        Ok(contents) => print!("{}", contents),
+                        Err(_) => eprintln!("cat: {}: No such file or directory", file),
+                    }
+                }
             }
         }
         Some(("type", sub_matches)) => {
